@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Study Flow script loaded successfully!');
+    let timerInterval;
+    let timeElapsed = 0; 
+    let breakTime = false;
     
     const freeTab = document.getElementById('free-tab');
     const calendarTab = document.getElementById('calendar-tab');
@@ -64,7 +67,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-
+    function showCompletionPrompt(box) {
+        const completionPrompt = document.createElement('div');
+        completionPrompt.className = 'completion-prompt';
+        completionPrompt.innerHTML = `
+            <div class="completion-content">
+                <h2>Task Completed!</h2>
+                <p>Would you like to finish the task?</p>
+                <button id="complete-task">Yes, Complete</button>
+                <button id="continue-task">No, Continue</button>
+            </div>
+        `;
+        document.body.appendChild(completionPrompt);
+    
+        document.getElementById('complete-task').onclick = () => {
+            finishTask();
+            completionPrompt.remove();
+        };
+        document.getElementById('continue-task').onclick = () => {
+            startTimer(parseInt(box.querySelector('#time').textContent) * 60 - timeElapsed, box);
+            completionPrompt.remove();
+        };
+    }
+    
     function reloadCalendar() {
         calendar.getEvents().forEach(event => event.remove());
         chrome.storage.sync.get(['boxes'], (data) => {
@@ -176,6 +201,55 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function startTimer(taskDuration) {
+        let taskTimeStart = Date.now(); 
+        let taskTimeElapsed = 0; 
+        let taskTimeNext = taskTimeStart + 30 * 60 * 1000; 
+        let breakDuration = 5 * 60 * 1000; 
+        let breakInProgress = false;
+        let timerInterval = setInterval(() => {
+            taskTimeElapsed = Date.now() - taskTimeStart; 
+            console.log("Time elapsed: " + (taskTimeElapsed / 1000).toFixed(2) + " seconds");  
+            if (taskTimeElapsed >= taskTimeNext && !breakInProgress) {
+                breakInProgress = true;
+                console.log("Time for a break!");
+                setTimeout(() => {
+                    console.log("Break ended.");
+                    breakInProgress = false;
+                    if (taskDuration - taskTimeElapsed >= 60 * 60 * 1000) {
+                        taskTimeNext = taskTimeElapsed + 60 * 60 * 1000;
+                        console.log("Next break in 1 hour.");
+                    } else {
+                        taskTimeNext = taskDuration; 
+                        console.log("No more breaks, task will end soon.");
+                    }
+                }, breakDuration); 
+            }
+            if (taskTimeElapsed >= taskDuration) {
+                clearInterval(timerInterval); 
+                console.log("Task completed!");
+            }
+        }, 1000); 
+    }
+
+    function showBreakScreen(breakDuration, box) {
+        const breakScreen = document.createElement('div');
+        breakScreen.className = 'break-screen';
+        breakScreen.innerHTML = `
+            <div class="break-content">
+                <h2>Break Time!</h2>
+                <p>Take a short break. The task will resume automatically in ${breakDuration / 60} minutes.</p>
+            </div>
+        `;
+        document.body.appendChild(breakScreen);
+    
+        setTimeout(() => {
+            breakScreen.remove();
+            breakTime = false;
+            startTimer(parseInt(box.querySelector('#time').textContent) * 60 - timeElapsed, box);
+        }, breakDuration * 1000);
+    }    
+
     function startTask(box, save = true) {
         document.querySelectorAll('.box').forEach(b => {
             if (b !== box) {
@@ -183,7 +257,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 controls.querySelector('.start-btn').style.display = 'block';
                 controls.querySelector('.pause-btn').style.display = 'none';
                 controls.querySelector('.finish-btn').style.display = 'none';
+                const taskDuration = parseInt(box.querySelector('#time').textContent) * 60; 
+                timeElapsed = 0;
+                startTimer(taskDuration, box);
             }
+            
         });
         
         const controls = box.nextElementSibling;
@@ -221,7 +299,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <h2 id="topic" contenteditable="false">Topic</h2>
             <p id="duedate">Due Date</p>
             <p id="assignment" contenteditable="false">Assignment Info</p>
-            <p id="time" contenteditable="false">Time</p>`;
+            <p id="time" contenteditable="false">Time</p>
+            <label><input type="checkbox" class="break-checkbox"> Take Breaks</label>`;
         free.appendChild(box);
         
         const controls = document.createElement('div');
@@ -281,8 +360,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 controls.querySelector('.pause-btn').style.display = 'none';
                 controls.querySelector('.finish-btn').style.display = 'block';
             }
+
+            if (savedData.takeBreaks) {
+                box.querySelector('.break-checkbox').checked = savedData.takeBreaks;
+            }
         }
-        
+
+        function showCompletionPrompt(box) {
+            const completionPrompt = document.createElement('div');
+            completionPrompt.className = 'completion-prompt';
+            completionPrompt.innerHTML = `
+                <div class="completion-content">
+                    <h2>Task Completed!</h2>
+                    <p>Would you like to finish the task?</p>
+                    <button id="complete-task">Yes, Complete</button>
+                    <button id="continue-task">No, Continue</button>
+                </div>
+            `;
+            document.body.appendChild(completionPrompt);
+
+            document.getElementById('complete-task').onclick = () => {
+                finishTask();
+                completionPrompt.remove();
+            };
+            document.getElementById('continue-task').onclick = () => {
+                startTimer(parseInt(box.querySelector('#time').textContent) * 60 - timeElapsed, box);
+                completionPrompt.remove();
+            };
+        }
+
         function saveBoxes() {
             const boxes = Array.from(document.querySelectorAll('.box')).map(box => {
                 const number = box.getAttribute("number");
@@ -309,6 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     duedate: duedate,
                     assignment: box.querySelector('#assignment').textContent,
                     time: box.querySelector('#time').textContent,
+                    takeBreaks: box.querySelector('.break-checkbox').checked,
                     status: status
                 };
             });
@@ -341,7 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
             notes.contentEditable = true;
             time.contentEditable = true;
             box.classList.add('editing');
-            
+            box.querySelector('.break-checkbox').disabled = false;
             const text = duedate.textContent;
             const currentDate = parseInt(box.getAttribute("date"));
             console.log(text, currentDate);
@@ -372,7 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 topic.contentEditable = false;
                 notes.contentEditable = false;
                 time.contentEditable = false;
-                
+                box.querySelector('.break-checkbox').disabled = true;
                 const dateInput = duedate.querySelector('input');
                 if (dateInput) {
                     const selectedDate = luxon.DateTime.fromISO(dateInput.value);
