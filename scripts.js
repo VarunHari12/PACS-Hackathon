@@ -36,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
         removeColorOptions();
         calendar.updateSize(); 
     });
-    
 
     chrome.storage.sync.get(['boxes', "currentTask"], (data) => {
         if (data.boxes) {
@@ -56,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const calendarEl = document.getElementById('calendar');
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
-        editable: true,             // Enable drag and drop
+        editable: true,
         events: [],
 
         eventDrop: function(info) {
@@ -67,10 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    
     function reloadCalendar() {
         calendar.getEvents().forEach(event => event.remove());
         chrome.storage.sync.get(['boxes'], (data) => {
+            console.log(data.boxes);
             if (data.boxes) {
                 data.boxes.forEach(box => {
                     console.log("adding", box.topic, "to calendar");
@@ -95,7 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     calendar.render();
 
-    // Function to handle event updates when task dragged/dropped/board resized
     function handleEventUpdate(event) {
         const updatedEvent = {
             id: event.id,
@@ -106,13 +104,11 @@ document.addEventListener('DOMContentLoaded', () => {
             assignment: event.extendedProps.assignment,
         };
     
-        // Update the box and storage with the new date
         chrome.storage.sync.get(['boxes'], (data) => {
             const updatedBoxes = data.boxes.map(box => {
                 if (box.number === event.extendedProps.number) {
                     box.duedate = new Date(updatedEvent.start).getTime();
                     
-                    // Update the shown due date on the task
                     const boxElement = document.querySelector(`.box[number="${box.number}"]`);
                     if (boxElement) {
                         const duedateElement = boxElement.querySelector('#duedate');
@@ -129,8 +125,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return box;
             });
 
-
-            // Set the updated data in storage and reload calendar
             chrome.storage.sync.set({ boxes: updatedBoxes }, () => {
                 reloadCalendar();
             });
@@ -162,7 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.body.appendChild(colorButton);
             
-            // Apply the animation after appending to the body to ensure the animation runs
             requestAnimationFrame(() => {
                 colorButton.style.animation = 'expandFromCenter 0.3s ease-out';
             });
@@ -179,55 +172,95 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function startTimer(taskDuration) {
-        let taskTimeStart = Date.now(); 
-        let taskTimeElapsed = 0; 
-        let taskTimeNext = taskTimeStart + 30 * 60 * 1000; 
-        let breakDuration = 5 * 60 * 1000; 
+    function startTimer(taskDuration, box) {
+        let taskTimeStart = Date.now();
+        let taskTimeElapsed = 0;
+
+        let breakInterval;
+        let breakDuration;
+        let nextBreakTime;
         let breakInProgress = false;
-        let timerInterval = setInterval(() => {
-            taskTimeElapsed = Date.now() - taskTimeStart; 
-            console.log("Time elapsed: " + (taskTimeElapsed / 1000).toFixed(2) + " seconds");  
-            if (taskTimeElapsed >= taskTimeNext && !breakInProgress) {
+
+        if (taskDuration <= 60 * 60 * 1000) { // If task duration <= 1 hour
+            breakInterval = taskDuration / 2;
+            breakDuration = 5 * 60 * 1000; // 5 minutes
+        } else {
+            breakInterval = 60 * 60 * 1000; // Every 1 hour
+            breakDuration = 10 * 60 * 1000; // 10 minutes
+        }
+
+        nextBreakTime = breakInterval;
+
+        const countdownElement = box.querySelector('.break-countdown');
+        if (!countdownElement) {
+            const countdownDisplay = document.createElement('p');
+            countdownDisplay.className = 'break-countdown';
+            countdownDisplay.textContent = '';
+            box.querySelector('.break-checkbox').parentNode.appendChild(countdownDisplay);
+        }
+
+        timerInterval = setInterval(() => {
+            taskTimeElapsed = Date.now() - taskTimeStart;
+
+            if (!breakInProgress) {
+                const timeUntilNextBreak = nextBreakTime - taskTimeElapsed;
+                const countdownDisplay = box.querySelector('.break-countdown');
+                const minutes = Math.floor((timeUntilNextBreak / 1000) / 60);
+                const seconds = Math.floor((timeUntilNextBreak / 1000) % 60);
+                countdownDisplay.textContent = `Time until next break: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            }
+
+            if (taskTimeElapsed >= nextBreakTime && !breakInProgress && box.querySelector('.break-checkbox').checked) {
                 breakInProgress = true;
                 console.log("Time for a break!");
-                showBreakScreen();
+                showBreakScreen(breakDuration / 1000, box); // Pass duration in seconds
+
+                chrome.storage.sync.get('currentTask', (data) => {
+                    const currentTask = data.currentTask || {};
+                    currentTask.blockeverything = true;
+                    chrome.storage.sync.set({ currentTask });
+                });
                 setTimeout(() => {
                     console.log("Break ended.");
                     breakInProgress = false;
-                    if (taskDuration - taskTimeElapsed >= 60 * 60 * 1000) {
-                        taskTimeNext = taskTimeElapsed + 60 * 60 * 1000;
-                        console.log("Next break in 1 hour.");
+                    chrome.storage.sync.get('currentTask', (data) => {
+                        const currentTask = data.currentTask || {};
+                        currentTask.blockeverything = false;
+                        chrome.storage.sync.set({ currentTask });
+                    });
+                    if (taskDuration - taskTimeElapsed >= breakInterval) {
+                        nextBreakTime += breakInterval;
+                        console.log("Next break scheduled.");
                     } else {
-                        taskTimeNext = taskDuration; 
+                        nextBreakTime = taskDuration + 1; // No more breaks
                         console.log("No more breaks, task will end soon.");
+                        box.querySelector('.break-countdown').textContent = '';
                     }
-                }, breakDuration); 
+                }, breakDuration);
             }
             if (taskTimeElapsed >= taskDuration) {
                 clearInterval(timerInterval);
-                showCompletionPrompt(); 
+                box.querySelector('.break-countdown').textContent = '';
+                showCompletionPrompt(box); // Pass box
                 console.log("Task completed!");
             }
-        }, 1000); 
+        }, 1000);
     }
 
-    function showBreakScreen(breakDuration, box) {
+    function showBreakScreen(breakDurationInSeconds, box) {
         const breakScreen = document.createElement('div');
         breakScreen.className = 'break-screen';
         breakScreen.innerHTML = `
             <div class="break-content">
                 <h2>Break Time!</h2>
-                <p>Take a short break. The task will resume automatically in ${breakDuration / 60} minutes.</p>
+                <p>Take a short break. The task will resume automatically in ${breakDurationInSeconds / 60} minutes.</p>
             </div>
         `;
         document.body.appendChild(breakScreen);
-    
+
         setTimeout(() => {
             breakScreen.remove();
-            breakTime = false;
-            startTimer(parseInt(box.querySelector('#time').textContent) * 60 - timeElapsed, box);
-        }, breakDuration * 1000);
+        }, breakDurationInSeconds * 1000);
     }    
 
     function startTask(box, save = true) {
@@ -237,18 +270,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 controls.querySelector('.start-btn').style.display = 'block';
                 controls.querySelector('.pause-btn').style.display = 'none';
                 controls.querySelector('.finish-btn').style.display = 'none';
-                const taskDuration = parseInt(box.querySelector('#time').textContent) * 60; 
-                timeElapsed = 0;
-                startTimer(taskDuration, box);
             }
-            
         });
         
         const controls = box.nextElementSibling;
         controls.querySelector('.start-btn').style.display = 'none';
         controls.querySelector('.pause-btn').style.display = 'block';
         controls.querySelector('.finish-btn').style.display = 'block';
-        
+
+        const taskDuration = parseInt(box.querySelector('#time').textContent) * 60 * 1000;
+        console.log("time", taskDuration);
+        timeElapsed = 0;
+        startTimer(taskDuration, box);
+
         if (save) {
             const data = {
                 topic: box.querySelector('#topic').textContent,
@@ -261,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("setting to", data);
                 setTimeout(() => {
                     window.close();
-                }, 750); // 0.75s and then we close the window
+                }, 750);
             });
         }
     }
@@ -279,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <h2 id="topic" contenteditable="false">Topic</h2>
             <p id="duedate">Due Date</p>
             <p id="assignment" contenteditable="false">Assignment Info</p>
-            <p id="time" contenteditable="false">Time</p>
+            <p id="time" contenteditable="false">Time to complete (in minutes)</p>
             <label><input type="checkbox" class="break-checkbox"> Take Breaks</label>`;
         free.appendChild(box);
         
@@ -305,9 +339,9 @@ document.addEventListener('DOMContentLoaded', () => {
         topic.textContent = 'Topic';
         duedate.textContent = 'Due Date';
         notes.textContent = 'Assignment';
-        time.textContent = 'Time to complete';
+        time.textContent = 'Time to complete (in minutes)';
         
-        updateControlsPosition()
+        updateControlsPosition();
         
         if (savedData) {
             controls.style.left = savedData.controls_left;
@@ -316,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
             box.style.top = savedData.top;
             topic.textContent = savedData.topic || 'Topic';
             notes.textContent = savedData.assignment || 'Assignment';
-            time.textContent = savedData.time || 'Time';
+            time.textContent = savedData.time || 'Time to complete (in minutes)';
             
             if (savedData.duedate) {
                 box.setAttribute("date", savedData.duedate);
@@ -343,6 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (savedData.takeBreaks) {
                 box.querySelector('.break-checkbox').checked = savedData.takeBreaks;
+                box.querySelector('.break-checkbox').disabled = true;
             }
         }
 
@@ -364,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 completionPrompt.remove();
             };
             document.getElementById('continue-task').onclick = () => {
-                startTimer(parseInt(box.querySelector('#time').textContent) * 60 - timeElapsed, box);
+                startTimer(parseInt(box.querySelector('#time').textContent) * 60 * 1000 - timeElapsed, box);
                 completionPrompt.remove();
             };
         }
@@ -386,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 return {
                     number: number,
-                    color: box.style.backgroundColor, // Save the color
+                    color: box.style.backgroundColor,
                     controls_left: controls.style.left,
                     controls_top: controls.style.top,
                     left: box.style.left,
@@ -432,7 +467,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const text = duedate.textContent;
             const currentDate = parseInt(box.getAttribute("date"));
             console.log(text, currentDate);
-            
 
             if (text !== 'Due Date') {
                 const luxonDate = luxon.DateTime.fromMillis(currentDate);
@@ -455,6 +489,15 @@ document.addEventListener('DOMContentLoaded', () => {
         function exitEditMode(event) {
             if (!box.contains(event.target) && !controls.contains(event.target)) {
                 console.log("exiting edit mode!");
+                // Validate time field
+                const timeText = time.textContent.trim();
+                const timeValue = parseInt(timeText);
+                if (isNaN(timeValue) || timeValue <= 0) {
+                    alert('Please enter a valid time in minutes');
+                    enterEditMode();
+                    return;
+                }
+
                 edit_mode = false;
                 topic.contentEditable = false;
                 notes.contentEditable = false;
@@ -482,14 +525,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        
-        
         function pauseTask() {
             const controls = box.nextElementSibling;
             controls.querySelector('.start-btn').style.display = 'block';
             controls.querySelector('.pause-btn').style.display = 'none';
             controls.querySelector('.finish-btn').style.display = 'block';
             
+            clearInterval(timerInterval);
             chrome.storage.sync.set({ currentTask: null });
             saveBoxes();
         }
@@ -526,7 +568,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 500); 
             }
         }
-        
         
         controls.querySelector('.start-btn').onclick = function() {
             startTask(box);
