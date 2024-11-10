@@ -1,0 +1,199 @@
+body {
+  background-color: #f0f0f0;
+  background-image: radial-gradient(circle, gray 0.5px, transparent 1px);
+  background-size: 50px 50px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.box {
+  width: 300px;
+  background-color: #add8e6;
+  color: black;
+  padding: 10px;
+  position: absolute;
+  cursor: move;
+  border-radius: 20px;
+  animation: fadeInScaleUp 0.5s ease-out;
+}
+
+@keyframes fadeInScaleUp {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeInScaleDown {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+#add {
+  border-radius: 100px;
+  width: 3%;
+  height: 6%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: scale(1.2);
+  background-color: #6495ED;
+  border: none;
+  position: absolute;
+  bottom: 5%;
+  right: 93%;
+}
+
+#plus {
+  transform: scale(1.5);
+  color: azure;
+}
+
+.controls {
+  position: absolute;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 5px;
+  display: flex;
+  gap: 10px;
+  z-index: 1000;
+  animation: fadeInScaleUp 0.5s ease-out;
+}
+
+.edit-btn, .trash-btn, .start-btn, .pause-btn, .finish-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 24px;
+}
+
+.edit-btn {
+  color: gray;
+}
+
+.trash-btn {
+  color: #F44336;
+}
+
+.box.fade-out {
+  animation: fadeInScaleDown 0.25s ease-out forwards;
+}
+
+.controls.fade-out {
+  animation: fadeInScaleDown 0.25s ease-out forwards;
+}
+
+#taskboard-switcher {
+  position: absolute;
+  top: 5%;
+  left: 2%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-around;
+  width: 150px;
+  height: 20px;
+  padding: 10px;
+  border-radius: 20px;
+  background-color: rgb(227, 227, 227);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+}
+
+.taskboard {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+#b1 {
+  background-color: white;
+  border: 2px solid skyblue;
+}
+
+#b2 {
+  background-color: lightpink;
+}
+
+#b3 {
+  background-color: lightyellow;
+}
+
+.past-due {
+  color: red;
+}
+
+@keyframes expandFromCenter {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeOutToCenter {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+.color-option {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  position: absolute;
+  z-index: 1001;
+  transition: transform 0.3s ease;
+  animation: expandFromCenter 0.3s ease-out;
+}
+
+.color-option.fade-out {
+  animation: fadeOutToCenter 0.3s ease-out forwards;
+}
+
+.color-option:hover {
+  transform: scale(1.2);
+}
+
+.tab {
+  padding: 10px 20px;
+  cursor: pointer;
+  border: none;
+  background-color: lightgray;
+  font-weight: bold;
+}
+
+.tab.active {
+  background-color: darkgray;
+}
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+}
