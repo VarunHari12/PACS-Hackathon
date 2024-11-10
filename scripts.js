@@ -67,28 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function showCompletionPrompt(box) {
-        const completionPrompt = document.createElement('div');
-        completionPrompt.className = 'completion-prompt';
-        completionPrompt.innerHTML = `
-            <div class="completion-content">
-                <h2>Task Completed!</h2>
-                <p>Would you like to finish the task?</p>
-                <button id="complete-task">Yes, Complete</button>
-                <button id="continue-task">No, Continue</button>
-            </div>
-        `;
-        document.body.appendChild(completionPrompt);
-    
-        document.getElementById('complete-task').onclick = () => {
-            finishTask();
-            completionPrompt.remove();
-        };
-        document.getElementById('continue-task').onclick = () => {
-            startTimer(parseInt(box.querySelector('#time').textContent) * 60 - timeElapsed, box);
-            completionPrompt.remove();
-        };
-    }
     
     function reloadCalendar() {
         calendar.getEvents().forEach(event => event.remove());
@@ -213,6 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (taskTimeElapsed >= taskTimeNext && !breakInProgress) {
                 breakInProgress = true;
                 console.log("Time for a break!");
+                showBreakScreen();
                 setTimeout(() => {
                     console.log("Break ended.");
                     breakInProgress = false;
@@ -226,7 +205,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, breakDuration); 
             }
             if (taskTimeElapsed >= taskDuration) {
-                clearInterval(timerInterval); 
+                clearInterval(timerInterval);
+                showCompletionPrompt(); 
                 console.log("Task completed!");
             }
         }, 1000); 
