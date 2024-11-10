@@ -6,9 +6,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const freeView = document.getElementById('free-view');
     const calendarView = document.getElementById('calendar-view');
     const addButton = document.getElementById('add');
-
+    var addStatus = false;
     addButton.addEventListener('click', () => {
-        showColorOptions();
+        if (!addStatus) {
+            showColorOptions();
+        }
+        else {
+            removeColorOptions();
+        }
+        addStatus = false;
     });
     
     freeTab.addEventListener('click', () => {
@@ -16,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
         calendarTab.classList.remove('active');
         freeView.classList.add('active');
         calendarView.classList.remove('active');
+        removeColorOptions();
     });
     
     calendarTab.addEventListener('click', () => {
@@ -23,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         freeTab.classList.remove('active');
         calendarView.classList.add('active');
         freeView.classList.remove('active');
-        
+        removeColorOptions();
         calendar.updateSize(); 
     });
     
@@ -126,10 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
-    
-    
-
-
 
     function showColorOptions() {
         const colors = ['#add8e6', '#F8DE7E', '#F8C8DC', '#AFE1AF', '#E6E6FA'];
@@ -151,6 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
             colorButton.addEventListener('click', () => {
                 createMovableBox(null, color);
                 removeColorOptions();
+                addStatus = !addStatus;
             });
             
             document.body.appendChild(colorButton);
@@ -163,18 +167,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function removeColorOptions() {
-        const colorOptions = document.querySelectorAll('.color-option');
-        colorOptions.forEach(option => {
-            option.classList.add('fade-out');
-            option.addEventListener('animationend', () => {
-                option.remove();
+        const colorButtons = document.querySelectorAll('.color-option'); 
+        colorButtons.forEach((colorButton) => {
+            colorButton.style.animation = 'fadeOutAndShrink 0.3s ease-out forwards';
+            colorButton.addEventListener('animationend', () => {
+                colorButton.remove();
             });
         });
-    }
-
-    function removeColorOptions() {
-        const colorOptions = document.querySelectorAll('.color-option');
-        colorOptions.forEach(option => option.remove());
     }
 
     function startTask(box, save = true) {

@@ -194,7 +194,7 @@ body {
 }
 
 .tab.active {
-  background-color: rgb(200,200,200);
+  background-color: 	#B0C4DE;
 }
 
 .view {
@@ -214,3 +214,15 @@ body {
   position: absolute;
   left: 50%
 }
+
+@keyframes fadeOutAndShrink {
+  0% {
+      opacity: 1;
+      transform: scale(1);
+  }
+  100% {
+      opacity: 0;
+      transform: scale(0.5);
+  }
+}
+
