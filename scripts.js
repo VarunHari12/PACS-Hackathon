@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else {
             removeColorOptions();
         }
-        addStatus = false;
+        addStatus = !addStatus;
     });
     
     freeTab.addEventListener('click', () => {
@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
             colorButton.addEventListener('click', () => {
                 createMovableBox(null, color);
                 removeColorOptions();
-                addStatus = !addStatus;
+                addStatus = false;
             });
             
             document.body.appendChild(colorButton);

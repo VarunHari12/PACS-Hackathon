@@ -43,9 +43,11 @@ body {
 }
 
 #add {
-  border-radius: 100px;
-  width: 3%;
-  height: 6%;
+  border-radius: 50%;
+  width: 8vw;
+  height: 8vw; 
+  max-width: 80px;
+  max-height: 80px; 
   display: flex;
   align-items: center;
   justify-content: center;
@@ -53,8 +55,8 @@ body {
   background-color: #6495ED;
   border: none;
   position: absolute;
-  bottom: 5%;
-  right: 93%;
+  bottom: 7.5%;
+  right: 5%;
 }
 
 #plus {
@@ -163,8 +165,8 @@ body {
 }
 
 .color-option {
-  width: 30px;
-  height: 30px;
+  width: 35px;
+  height: 35px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
