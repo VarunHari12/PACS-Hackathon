@@ -58,7 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    function loadEvents() {
+    function reloadCalendar() {
+        calendar.getEvents().forEach(event => event.remove());
         chrome.storage.sync.get(['boxes'], (data) => {
             if (data.boxes) {
                 data.boxes.forEach(box => {
@@ -82,14 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    //loadEvents(); // Load events on calendar init
     calendar.render();
-
-    function reloadCalendar() {
-        console.log("reloading calendar!");
-        calendar.getEvents().forEach(event => event.remove()); // Clear existing events
-        loadEvents(); // Load events from storage and add them back to the calendar
-    }
 
     // Function to handle event updates when task dragged/dropped/board resized
     function handleEventUpdate(event) {
@@ -114,6 +108,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         const duedateElement = boxElement.querySelector('#duedate');
                         const luxonDate = luxon.DateTime.fromMillis(box.duedate);
                         duedateElement.textContent = luxonDate.toRelative({ base: luxon.DateTime.now() });
+
+                        if (luxonDate < luxon.DateTime.now()) {
+                            duedateElement.classList.add('past-due');
+                        } else {
+                            duedateElement.classList.remove('past-due');
+                        }
                     }
                 }
                 return box;
@@ -211,6 +211,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createMovableBox(savedData = null, selectedColor = '#add8e6') {
         var box_amounts = savedData?.number || document.querySelectorAll(".box").length;
+
+        const free = document.getElementById("free-view");
         
         const box = document.createElement('div');
         box.className = 'box';
@@ -221,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <p id="duedate">Due Date</p>
             <p id="assignment" contenteditable="false">Assignment Info</p>
             <p id="time" contenteditable="false">Time</p>`;
-        document.body.appendChild(box);
+        free.appendChild(box);
         
         const controls = document.createElement('div');
         controls.className = 'controls';
@@ -229,11 +231,11 @@ document.addEventListener('DOMContentLoaded', () => {
         controls.innerHTML = `
             <button class="start-btn" style="display: block;"><i class="fa-solid fa-play" style="color: #63E6BE;"></i></button>
             <button class="pause-btn" style="display: none;"><i class="fa-solid fa-pause" style="color: #FFA500;"></i></button>
-            <button class="finish-btn" style="display: none;"><i class="fa-solid fa-check" style="color: #28a745;"></i></button>
+            <button class="finish-btn" style="display: block;"><i class="fa-solid fa-check" style="color: #28a745;"></i></button>
             <button class="edit-btn"><i class="fa-solid fa-pen-to-square"></i></button>
             <button class="trash-btn"><i class="fa-solid fa-trash"></i></button>
         `;
-        document.body.appendChild(controls);
+        free.appendChild(controls);
         
         const topic = box.querySelector("#topic");
         const duedate = box.querySelector("#duedate");
@@ -296,6 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const duedate = parseInt(box.getAttribute("date"));
                 
+                
                 return {
                     number: number,
                     color: box.style.backgroundColor, // Save the color
@@ -342,9 +345,18 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const text = duedate.textContent;
             const currentDate = parseInt(box.getAttribute("date"));
+            console.log(text, currentDate);
+            
+
             if (text !== 'Due Date') {
                 const luxonDate = luxon.DateTime.fromMillis(currentDate);
                 duedate.innerHTML = `<input type="date" value="${luxonDate.toFormat('yyyy-MM-dd')}">`;
+            
+                if (luxonDate < luxon.DateTime.now()) {
+                    duedate.classList.add('past-due');
+                } else {
+                    duedate.classList.remove('past-due');
+                }
             } else {
                 duedate.innerHTML = `<input type="date">`;
             }
@@ -356,6 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         function exitEditMode(event) {
             if (!box.contains(event.target) && !controls.contains(event.target)) {
+                console.log("exiting edit mode!");
                 edit_mode = false;
                 topic.contentEditable = false;
                 notes.contentEditable = false;
@@ -366,6 +379,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const selectedDate = luxon.DateTime.fromISO(dateInput.value);
                     box.setAttribute("date", selectedDate.ts);
                     duedate.textContent = selectedDate.toRelative({ base: luxon.DateTime.now() });
+
+                    if (selectedDate < luxon.DateTime.now()) {
+                        duedate.classList.add('past-due');
+                    } else {
+                        duedate.classList.remove('past-due');
+                    }
                 }
                 
                 box.classList.remove('editing');
