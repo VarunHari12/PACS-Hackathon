@@ -188,10 +188,13 @@ body {
   border: none;
   background-color: lightgray;
   font-weight: bold;
+  border-radius: 10px;
+  background-color: rgb(227, 227, 227);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.4);
 }
 
 .tab.active {
-  background-color: darkgray;
+  background-color: rgb(200,200,200);
 }
 
 .view {
@@ -200,4 +203,14 @@ body {
 
 .view.active {
   display: block;
+}
+
+#free-tab {
+  position: absolute;
+  left:45% 
+}
+
+#calendar-tab {
+  position: absolute;
+  left: 50%
 }

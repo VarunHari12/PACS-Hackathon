@@ -325,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         function toggleControls() {
             if (controls.style.display === 'none' || controls.style.display === '') {
-                controls.style.display = 'block';
+                controls.style.display = 'flex';
                 controls.classList.remove('fade-out');
                 updateControlsPosition();
             } else {
