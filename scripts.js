@@ -31,7 +31,13 @@ document.addEventListener('DOMContentLoaded', () => {
         calendarView.classList.add('active');
         freeView.classList.remove('active');
         removeColorOptions();
-        calendar.updateSize(); 
+        calendar.updateSize();
+
+        calendar.next();
+        setTimeout(() => {
+            console.log("going back!");
+            calendar.prev();
+        }, 50);
     });
 
     chrome.storage.sync.get(['boxes', 'currentTask'], (data) => {
@@ -88,6 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
         initialView: 'dayGridMonth',
         editable: true,
         events: [],
+        handleWindowResize: true,
+        //height: 'auto',
+        //width: 'auto',
 
         eventDrop: function(info) {
             handleEventUpdate(info.event);
@@ -124,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     calendar.render();
+
 
     function handleEventUpdate(event) {
         const updatedEvent = {
@@ -271,7 +281,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
     
                 chrome.storage.sync.set({
-                    currentTask: { 
+                    currentTask: {
+                        topic: box.querySelector("h2").textContent,
                         number: box.getAttribute('number'), 
                         status: 'active', 
                         taskStartingTime,
@@ -449,6 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (save) {
             // Save the current task
             const data = {
+                topic: box.querySelector("h2").textContent,
                 number: box.getAttribute('number'),
                 status: 'active',
                 taskStartingTime: Date.now() - box.timeElapsed,
@@ -827,4 +839,8 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBoxes();
         reloadCalendar();
     }
+
+    
+
+
 });
