@@ -33,11 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
         removeColorOptions();
         calendar.updateSize();
 
-        calendar.next();
-        setTimeout(() => {
-            console.log("going back!");
-            calendar.prev();
-        }, 50);
     });
 
     chrome.storage.sync.get(['boxes', 'currentTask'], (data) => {
