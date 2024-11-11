@@ -51,7 +51,7 @@ Boxly is a productivity and organization web extension that allows users to trac
    - When you start a task, an AI blocking algorithm will decide which searches and webpages are related to your assignment and block them accordingly
    - If you select "take breaks", Boxly will automatically give you forced breaks that block anything from being done on your browser
 
-##🗻 Challenges
+## 🗻Challenges
 
 Currently, there are still some issues with Boxly. We have started the implementations for an "artboards" feature (top right of the home page). We did not have enough time to complete this feature in this version of Boxly but we will do it for future versions. While working on the project, we did have some problems with scaling the website for different screen sizes. Although it isn't perfect, we tried our best and the end result is aesthetically solid. We also had some trouble with getting the blocking algorithm to be accurate. After a lot of testing and training, we have got the algorithm to be pretty accurate which is something we are proud of.
 
