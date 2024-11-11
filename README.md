@@ -1,5 +1,10 @@
 # 📦 Boxly Documentation
 
+## 🏫 Overview 
+Boxly is a productivity and organization web extension that allows users to track their tasks and stay focused using active blocking. With its wide array of features, users can organize and document tasks in a calendar or bulletin board format. With Boxly, we hope to have a measurable impact on productivity and foster a new working routine for our users.
+
+## 💻 Technical stack
+
 ## 🚀 How to Use
 
 > **Note:** Boxly isn’t yet available on the Chrome Extension Store, but you can still add it to your browser with these simple steps:
@@ -31,6 +36,5 @@
 
 ---
 
-## 💻 Technical implementation
 
 Now you’re ready to start using Boxly for enhanced productivity!
