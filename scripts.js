@@ -1,8 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Study Flow script loaded successfully!');
-    let timerInterval;
-    let timeElapsed = 0; 
-    let breakTime = false;
     
     const freeTab = document.getElementById('free-tab');
     const calendarTab = document.getElementById('calendar-tab');
@@ -37,20 +34,54 @@ document.addEventListener('DOMContentLoaded', () => {
         calendar.updateSize(); 
     });
 
-    chrome.storage.sync.get(['boxes', "currentTask"], (data) => {
+    chrome.storage.sync.get(['boxes', 'currentTask'], (data) => {
         if (data.boxes) {
             data.boxes.forEach(boxData => createMovableBox(boxData));
-        }
-        if (data.currentTask) {
-            const { topic, duedate, assignment, time } = data.currentTask;
-            document.querySelectorAll(".box").forEach(box => {
-                const boxTopic = box.querySelector("#topic").textContent;
-                if (boxTopic === topic) {
-                    startTask(box, false);
+
+            data.boxes.forEach(boxData => {
+                const box = document.querySelector(`.box[number="${boxData.number}"]`);
+                if (boxData.breakActive) {
+                    const remainingBreakTime = boxData.breakEndTime - Date.now();
+                    if (remainingBreakTime <= 0) {
+                        endBreak(box);
+                    } else {
+                        box.breakStartTime = boxData.breakStartTime;
+                        box.breakEndTime = boxData.breakEndTime;
+                        showBreakScreen(remainingBreakTime / 1000, box);
+                    }
                 }
-            })
+            });
+        }
+
+        if (data.currentTask && data.currentTask.status === 'active') {
+            const currentTaskNumber = data.currentTask.number;
+            const taskStartingTime = data.currentTask.taskStartingTime;
+            
+            const box = document.querySelector(`.box[number="${currentTaskNumber}"]`);
+
+            if (data.currentTask.breakActive) {
+                if (box) {
+                    const remainingBreakTime = data.currentTask.breakEndTime - Date.now();
+                    if (remainingBreakTime <= 0) {
+                        endBreak(box);
+                    } else {
+                        box.breakStartTime = data.currentTask.breakStartTime;
+                        box.breakEndTime = data.currentTask.breakEndTime;
+                        showBreakScreen(remainingBreakTime / 1000, box);
+                    }
+                }
+            }
+
+            document.querySelectorAll(".box").forEach(box => {
+                const boxNumber = box.getAttribute('number');
+                if (boxNumber === currentTaskNumber) {
+                    const elapsedTime = Date.now() - taskStartingTime;
+                    startTask(box, false, elapsedTime);
+                }
+            });
         }
     });
+
 
     const calendarEl = document.getElementById('calendar');
     const calendar = new FullCalendar.Calendar(calendarEl, {
@@ -172,132 +203,314 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function showCompletionPrompt(box) {
+        const completionScreen = document.createElement('div');
+        completionScreen.className = 'break-screen'; // Using the same class for dark background
+        completionScreen.innerHTML = `
+            <div class="break-content">
+                <h2>Task Completed!</h2>
+                <p>Would you like to finish the task?</p>
+                <button id="complete-task">Yes, Complete</button>
+                <button id="continue-task">No, Continue</button>
+            </div>
+        `;
+        document.body.appendChild(completionScreen);
+    
+        completionScreen.querySelector('#complete-task').onclick = () => {
+            completionScreen.remove();
+            finishTask(box);
+        };
+        
+        completionScreen.querySelector('#continue-task').onclick = () => {
+            const taskDuration = parseInt(box.querySelector('#time').textContent) * 60 * 1000;
+            startTimer(taskDuration, box);
+            completionScreen.remove();
+        };
+    }
+
     function startTimer(taskDuration, box) {
-        let taskTimeStart = Date.now();
-        let taskTimeElapsed = 0;
-
-        let breakInterval;
-        let breakDuration;
-        let nextBreakTime;
-        let breakInProgress = false;
-
-        if (taskDuration <= 60 * 60 * 1000) { // If task duration <= 1 hour
-            breakInterval = taskDuration / 2;
-            breakDuration = 5 * 60 * 1000; // 5 minutes
+        let taskStartingTime;
+    
+        if (!box.timeElapsed || box.timeElapsed === 0) {
+            taskStartingTime = Date.now();
         } else {
-            breakInterval = 60 * 60 * 1000; // Every 1 hour
-            breakDuration = 10 * 60 * 1000; // 10 minutes
+            taskStartingTime = Date.now() - box.timeElapsed;
         }
-
-        nextBreakTime = breakInterval;
-
-        const countdownElement = box.querySelector('.break-countdown');
-        if (!countdownElement) {
-            const countdownDisplay = document.createElement('p');
-            countdownDisplay.className = 'break-countdown';
-            countdownDisplay.textContent = '';
-            box.querySelector('.break-checkbox').parentNode.appendChild(countdownDisplay);
+    
+        let breakInProgress = false;
+        if (box.breakActive) {
+            breakInProgress = true;
         }
-
-        timerInterval = setInterval(() => {
-            taskTimeElapsed = Date.now() - taskTimeStart;
-
+    
+        const breakInterval = taskDuration <= 60 * 60 * 1000 ? taskDuration / 2 : 60 * 60 * 1000;
+        const breakDuration = taskDuration <= 60 * 60 * 1000 ? 5 * 60 * 1000 : 10 * 60 * 1000;
+        let nextBreakTime = breakInterval;
+    
+        if (breakInProgress && box.breakStartTime && box.breakEndTime) {
+            // Calculate nextBreakTime
+            nextBreakTime = box.timeElapsed - (box.breakStartTime - taskStartingTime) + breakInterval;
+        }
+    
+        let countdownElement = box.querySelector('.break-countdown') || document.createElement('p');
+        countdownElement.className = 'break-countdown';
+        box.querySelector('.break-checkbox').parentNode.appendChild(countdownElement);
+    
+        if (box.timerInterval) {
+            clearInterval(box.timerInterval);
+        }
+    
+        box.timerInterval = setInterval(() => {
+            box.timeElapsed = Date.now() - taskStartingTime;
+    
             if (!breakInProgress) {
-                const timeUntilNextBreak = nextBreakTime - taskTimeElapsed;
-                const countdownDisplay = box.querySelector('.break-countdown');
-                const minutes = Math.floor((timeUntilNextBreak / 1000) / 60);
-                const seconds = Math.floor((timeUntilNextBreak / 1000) % 60);
-                countdownDisplay.textContent = `Time until next break: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-            }
-
-            if (taskTimeElapsed >= nextBreakTime && !breakInProgress && box.querySelector('.break-checkbox').checked) {
-                breakInProgress = true;
-                console.log("Time for a break!");
-                showBreakScreen(breakDuration / 1000, box); // Pass duration in seconds
-
-                chrome.storage.sync.get('currentTask', (data) => {
-                    const currentTask = data.currentTask || {};
-                    currentTask.blockeverything = true;
-                    chrome.storage.sync.set({ currentTask });
+                const timeUntilNextBreak = nextBreakTime - box.timeElapsed;
+                if (timeUntilNextBreak >= 0) {
+                    const minutes = Math.floor((timeUntilNextBreak / 1000) / 60);
+                    const seconds = Math.floor((timeUntilNextBreak / 1000) % 60);
+                    countdownElement.textContent = `Time until next break: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                }
+    
+                chrome.storage.sync.set({
+                    currentTask: { 
+                        number: box.getAttribute('number'), 
+                        status: 'active', 
+                        taskStartingTime,
+                        breakActive: false
+                    },
                 });
-                setTimeout(() => {
-                    console.log("Break ended.");
-                    breakInProgress = false;
-                    chrome.storage.sync.get('currentTask', (data) => {
-                        const currentTask = data.currentTask || {};
-                        currentTask.blockeverything = false;
-                        chrome.storage.sync.set({ currentTask });
-                    });
-                    if (taskDuration - taskTimeElapsed >= breakInterval) {
-                        nextBreakTime += breakInterval;
-                        console.log("Next break scheduled.");
-                    } else {
-                        nextBreakTime = taskDuration + 1; // No more breaks
-                        console.log("No more breaks, task will end soon.");
-                        box.querySelector('.break-countdown').textContent = '';
-                    }
-                }, breakDuration);
             }
-            if (taskTimeElapsed >= taskDuration) {
-                clearInterval(timerInterval);
-                box.querySelector('.break-countdown').textContent = '';
-                showCompletionPrompt(box); // Pass box
-                console.log("Task completed!");
+    
+            if (box.timeElapsed >= nextBreakTime && !breakInProgress && box.querySelector('.break-checkbox').checked) {
+                breakInProgress = true;
+                let breakStartTime = Date.now();
+                let breakEndTime = breakStartTime + breakDuration;
+    
+                chrome.storage.sync.get(['boxes', 'currentTask'], (data) => {
+                    const updatedBoxes = data.boxes.map(b => {
+                        if (b.number === box.getAttribute('number')) {
+                            b.breakActive = true;
+                            b.breakStartTime = breakStartTime;
+                            b.breakEndTime = breakEndTime;
+                        }
+                        return b;
+                    });
+                    chrome.storage.sync.set({ 
+                        boxes: updatedBoxes,
+                        currentTask: { 
+                            ...data.currentTask, 
+                            breakActive: true, 
+                            breakStartTime, 
+                            breakEndTime 
+                        }
+                    });
+                });
+    
+                showBreakScreen(breakDuration / 1000, box);
+            }
+    
+            if (breakInProgress && box.breakEndTime) {
+                // Check if break is over
+                if (Date.now() >= box.breakEndTime) {
+                    breakInProgress = false;
+                    // Update nextBreakTime
+                    if (taskDuration - box.timeElapsed > breakInterval) {
+                        nextBreakTime += breakInterval;
+                    } else {
+                        nextBreakTime = taskDuration + 1;
+                        countdownElement.textContent = '';
+                    }
+                }
+            }
+    
+            if (box.timeElapsed >= taskDuration) {
+                clearInterval(box.timerInterval);
+                delete box.timerInterval;
+                countdownElement.textContent = '';
+                showCompletionPrompt(box);
             }
         }, 1000);
     }
 
     function showBreakScreen(breakDurationInSeconds, box) {
+        let breakStartTime = box.breakStartTime || Date.now();
+        let breakEndTime = breakStartTime + breakDurationInSeconds * 1000;
+        let remainingBreakTime = breakEndTime - Date.now();
+    
+        if (remainingBreakTime <= 0) {
+            // Break is over
+            endBreak(box);
+            return;
+        }
+    
+        // Store breakStartTime and breakEndTime in box
+        box.breakStartTime = breakStartTime;
+        box.breakEndTime = breakEndTime;
+    
         const breakScreen = document.createElement('div');
         breakScreen.className = 'break-screen';
         breakScreen.innerHTML = `
             <div class="break-content">
                 <h2>Break Time!</h2>
-                <p>Take a short break. The task will resume automatically in ${breakDurationInSeconds / 60} minutes.</p>
+                <p id="break-timer">Take a short break. The task will resume automatically in ${Math.ceil(remainingBreakTime / 1000 / 60)} minutes.</p>
+                <button id="continue-working">Continue Working</button>
             </div>
         `;
         document.body.appendChild(breakScreen);
-
-        setTimeout(() => {
+    
+        const breakTimerElement = breakScreen.querySelector('#break-timer');
+    
+        const continueButton = breakScreen.querySelector('#continue-working');
+    
+        continueButton.addEventListener('click', () => {
+            clearInterval(timerInterval);
             breakScreen.remove();
-        }, breakDurationInSeconds * 1000);
-    }    
+            endBreak(box); // Ensure break is properly ended
+        });
+    
+        const timerInterval = setInterval(() => {
+            remainingBreakTime = breakEndTime - Date.now();
+    
+            if (remainingBreakTime <= 0) {
+                clearInterval(timerInterval);
+                breakScreen.remove();
+                endBreak(box);
+            } else {
+                const minutes = Math.floor(remainingBreakTime / 1000 / 60);
+                const seconds = Math.floor((remainingBreakTime / 1000) % 60);
+                breakTimerElement.textContent = `The task will resume automatically in ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            }
+        }, 1000);
+    }
+        
+    function endBreak(box) {
+        clearInterval(box.breakTimerInterval); // Clear any existing intervals
+        delete box.breakTimerInterval; // Clean up
+    
+        box.breakActive = false;
+        delete box.breakStartTime;
+        delete box.breakEndTime;
+    
+        // Update the display to reflect that the break has ended
+        if (box.breakScreenElement) {
+            box.breakScreenElement.remove();
+            delete box.breakScreenElement;
+        }
+    
+        // Update storage
+        chrome.storage.sync.get(['boxes', 'currentTask'], (data) => {
+            const updatedBoxes = data.boxes.map(b => {
+                if (b.number === box.getAttribute('number')) {
+                    b.breakActive = false;
+                    delete b.breakStartTime;
+                    delete b.breakEndTime;
+                }
+                return b;
+            });
+            const updatedCurrentTask = { 
+                ...data.currentTask, 
+                breakActive: false, 
+                breakStartTime: null, 
+                breakEndTime: null 
+            };
+            chrome.storage.sync.set({ 
+                boxes: updatedBoxes,
+                currentTask: updatedCurrentTask
+            });
+        });
+    }
+    
 
-    function startTask(box, save = true) {
+    function startTask(box, save = true, initialTimeElapsed = 0) {
         document.querySelectorAll('.box').forEach(b => {
             if (b !== box) {
                 const controls = b.nextElementSibling;
                 controls.querySelector('.start-btn').style.display = 'block';
                 controls.querySelector('.pause-btn').style.display = 'none';
-                controls.querySelector('.finish-btn').style.display = 'none';
+                // Stop any existing timers on other boxes
+                if (b.timerInterval) {
+                    clearInterval(b.timerInterval);
+                    delete b.timerInterval;
+                    delete b.timeElapsed;
+                }
             }
         });
-        
+
         const controls = box.nextElementSibling;
         controls.querySelector('.start-btn').style.display = 'none';
         controls.querySelector('.pause-btn').style.display = 'block';
-        controls.querySelector('.finish-btn').style.display = 'block';
 
         const taskDuration = parseInt(box.querySelector('#time').textContent) * 60 * 1000;
-        console.log("time", taskDuration);
-        timeElapsed = 0;
+
+        // Set timeElapsed appropriately before starting timer
+        box.timeElapsed = initialTimeElapsed || box.timeElapsed || 0;
+
         startTimer(taskDuration, box);
 
         if (save) {
+            // Save the current task
             const data = {
-                topic: box.querySelector('#topic').textContent,
-                duedate: box.querySelector('#duedate').textContent,
-                assignment: box.querySelector('#assignment').textContent,
-                time: box.querySelector('#time').textContent,
-                status: 'started'
+                number: box.getAttribute('number'),
+                status: 'active',
+                taskStartingTime: Date.now() - box.timeElapsed,
+                breakActive: box.breakActive || false,
+                breakStartTime: box.breakStartTime || null,
+                breakEndTime: box.breakEndTime || null
             };
-            chrome.storage.sync.set({ currentTask: data }, () => {
-                console.log("setting to", data);
-                setTimeout(() => {
-                    window.close();
-                }, 750);
-            });
+            chrome.storage.sync.set({ currentTask: data });
         }
+    }
+
+    function finishTask(box) {
+        const controls = box.nextElementSibling;
+        
+        try {
+            const boxRect = box.getBoundingClientRect();
+            const boxCenterX = boxRect.left + boxRect.width / 2;
+            const boxCenterY = boxRect.top + boxRect.height / 2;
+            
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: {
+                    x: boxCenterX / window.innerWidth,
+                    y: boxCenterY / window.innerHeight
+                }
+            });
+        } catch (e) {
+            console.error('Confetti function is not defined:', e);
+        }
+    
+        clearInterval(box.timerInterval);
+        delete box.timerInterval;
+        box.classList.add('fade-out');
+        controls.classList.add('fade-out');
+    
+        // Remove the box data from storage
+        chrome.storage.sync.get(['boxes', 'currentTask'], (data) => {
+            const updatedBoxes = data.boxes.filter(b => b.number !== box.getAttribute('number'));
+            chrome.storage.sync.set({ 
+                boxes: updatedBoxes,
+                currentTask: null
+            });
+        });
+    
+        // Remove the box and controls from the DOM
+        setTimeout(() => {
+            box.remove();
+            controls.remove();
+            removeEventFromCalendar(box.getAttribute('number'));
+        }, 500);
+    }
+    
+    
+    function removeEventFromCalendar(boxNumber) {
+        const calendarEvents = calendar.getEvents();
+    
+        calendarEvents.forEach(event => {
+            if (event.extendedProps.number === boxNumber) {
+                event.remove();
+            }
+        });
     }
 
     function createMovableBox(savedData = null, selectedColor = '#add8e6') {
@@ -351,6 +564,10 @@ document.addEventListener('DOMContentLoaded', () => {
             topic.textContent = savedData.topic || 'Topic';
             notes.textContent = savedData.assignment || 'Assignment';
             time.textContent = savedData.time || 'Time to complete (in minutes)';
+            box.timeElapsed = savedData.timeElapsed || 0;
+            box.breakActive = savedData.breakActive || false;
+            box.breakStartTime = savedData.breakStartTime || null;
+            box.breakEndTime = savedData.breakEndTime || null;
             
             if (savedData.duedate) {
                 box.setAttribute("date", savedData.duedate);
@@ -379,30 +596,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 box.querySelector('.break-checkbox').checked = savedData.takeBreaks;
                 box.querySelector('.break-checkbox').disabled = true;
             }
+        } else {
+            box.timeElapsed = 0;
         }
 
-        function showCompletionPrompt(box) {
-            const completionPrompt = document.createElement('div');
-            completionPrompt.className = 'completion-prompt';
-            completionPrompt.innerHTML = `
-                <div class="completion-content">
-                    <h2>Task Completed!</h2>
-                    <p>Would you like to finish the task?</p>
-                    <button id="complete-task">Yes, Complete</button>
-                    <button id="continue-task">No, Continue</button>
-                </div>
-            `;
-            document.body.appendChild(completionPrompt);
-
-            document.getElementById('complete-task').onclick = () => {
-                finishTask();
-                completionPrompt.remove();
-            };
-            document.getElementById('continue-task').onclick = () => {
-                startTimer(parseInt(box.querySelector('#time').textContent) * 60 * 1000 - timeElapsed, box);
-                completionPrompt.remove();
-            };
-        }
+        
 
         function saveBoxes() {
             const boxes = Array.from(document.querySelectorAll('.box')).map(box => {
@@ -431,7 +629,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     assignment: box.querySelector('#assignment').textContent,
                     time: box.querySelector('#time').textContent,
                     takeBreaks: box.querySelector('.break-checkbox').checked,
-                    status: status
+                    status: status,
+                    timeElapsed: box.timeElapsed || 0,
+                    breakActive: box.breakActive || false,
+                    breakStartTime: box.breakStartTime || null,
+                    breakEndTime: box.breakEndTime || null
                 };
             });
             chrome.storage.sync.set({ boxes });
@@ -531,43 +733,13 @@ document.addEventListener('DOMContentLoaded', () => {
             controls.querySelector('.pause-btn').style.display = 'none';
             controls.querySelector('.finish-btn').style.display = 'block';
             
-            clearInterval(timerInterval);
+            clearInterval(box.timerInterval);
+            delete box.timerInterval;
             chrome.storage.sync.set({ currentTask: null });
             saveBoxes();
         }
         
-        function finishTask() {
-            const controls = box.nextElementSibling;
-            if (confirm('Have you completed the task?')) {
-                try {
-                    const boxRect = box.getBoundingClientRect();
-                    const boxCenterX = boxRect.left + boxRect.width / 2;
-                    const boxCenterY = boxRect.top + boxRect.height / 2;
-                    
-                    confetti({
-                        particleCount: 100,
-                        spread: 70,
-                        origin: {
-                            x: boxCenterX / window.innerWidth,
-                            y: boxCenterY / window.innerHeight
-                        }
-                    });
-                } catch (e) {
-                    console.error('Confetti function is not defined:', e);
-                }
-                
-                
-                box.classList.add('fade-out');
-                controls.classList.add('fade-out');
-                setTimeout(() => {
-                    box.remove();
-                    controls.remove();
-                    chrome.storage.sync.set({ currentTask: null });
-                    reloadCalendar();
-                    saveBoxes();
-                }, 500); 
-            }
-        }
+        
         
         controls.querySelector('.start-btn').onclick = function() {
             startTask(box);
@@ -578,7 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         controls.querySelector('.finish-btn').onclick = function() {
-            finishTask();
+            finishTask(box);
         };
         
         controls.querySelector(".edit-btn").onclick = function(event) {
@@ -591,14 +763,22 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         controls.querySelector('.trash-btn').onclick = function() {
-            box.classList.add('fade-out');
-            controls.classList.add('fade-out');
-            setTimeout(() => {
-                box.remove();
-                controls.remove(); 
-                saveBoxes();
-                reloadCalendar();
-            }, 500); 
+            if (confirm('Are you sure you want to delete this task?')) {
+                // Stop any timerInterval
+                if (box.timerInterval) {
+                    clearInterval(box.timerInterval);
+                    delete box.timerInterval;
+                }
+                box.classList.add('fade-out');
+                controls.classList.add('fade-out');
+                setTimeout(() => {
+                    box.remove();
+                    controls.remove(); 
+                    chrome.storage.sync.set({ currentTask: null });
+                    saveBoxes();
+                    reloadCalendar();
+                }, 500); 
+            }
         };
         
         let isDragging = false;
