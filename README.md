@@ -31,4 +31,6 @@
 
 ---
 
+## 💻 Technical implementation
+
 Now you’re ready to start using Boxly for enhanced productivity!
