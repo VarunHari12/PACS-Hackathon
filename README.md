@@ -1,11 +1,34 @@
-# Boxly Documentation 
+# 📦 Boxly Documentation
 
-## How to Use:
-Currently, Boxly is not available on the Chrome extension store but it can still be added to your browser using the following steps:
-1. Download or clone Boxly from the PACS-Hackathon repository and unzip the folder into your desired location
-2. Opem your Chrome browser and click the extension button in the top right of your screen
-3. Click on manage extensions and turn on developer mode in the top right of your screen
-4. Click on the "load unpacked" button in the top left and select the Boxly project folder
-5. Once loaded, enable the extension by using the switch in the bottom right of the Boxly extension
-6. If you ever decide to make code changes, click on the reload button in the Boxly extension box
-7. You can now open the home page by clicking on your extensions and clicking on Boxly
+## 🚀 How to Use
+
+> **Note:** Boxly isn’t yet available on the Chrome Extension Store, but you can still add it to your browser with these simple steps:
+
+1. **Download or Clone Boxly**
+   - Access the Boxly project from the [PACS-Hackathon repository](#) and download or clone it.
+   - Unzip the downloaded folder to a convenient location on your computer.
+
+2. **Open Extensions in Chrome**
+   - Launch your Chrome browser.
+   - Click the **Extensions** button in the top-right corner of the screen.
+
+3. **Enable Developer Mode**
+   - Select **Manage Extensions** from the Extensions dropdown.
+   - Toggle **Developer Mode** on in the top-right corner of the Extensions page.
+
+4. **Load Boxly**
+   - Click **Load Unpacked** (top left).
+   - Navigate to and select the **Boxly** project folder.
+
+5. **Enable the Extension**
+   - After loading, enable Boxly by toggling the switch at the bottom-right of the Boxly extension box.
+
+6. **Reload After Code Changes**
+   - If you make any code updates, just click **Reload** in the Boxly extension box to apply changes.
+
+7. **Access Boxly’s Home Page**
+   - Click on your extensions list and select **Boxly** to open its homepage.
+
+---
+
+Now you’re ready to start using Boxly for enhanced productivity!
