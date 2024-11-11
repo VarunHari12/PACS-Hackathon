@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Study Flow",
+  "name": "Boxly",
   "version": "1.0.1",
   
   "host_permissions": [
