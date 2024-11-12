@@ -13,9 +13,20 @@ Boxly is a productivity and organization web extension that allows users to trac
    - HTML: frontend
    - CSS: frontend
 
-**Other**
+**Other**  
+  
+Uses the LLama3 7B parameter model  
+Llama.cpp Python bindings for both finetuning the initial Llama3 model using a custom made finetuning dataaset, as well as for running the model on every browser request  
+Chrome sync storage API for task storage
 
-**Implementation**
+🏗️ **Implementation**  
+  
+Finetune the initial LLama3 7B parameter model using the custom finetuning dataset, and apply the output LORA to the baseline model.  
+Expose an API with CORS support to allow requests to come in from the web extension.  
+Create the Chrome extension's index.html and scripts.js which will serve as the UI, storing all tasks in chrome's storage sync.  
+When a user starts a task, push it to the currentTask key, which the content.js file will read on every website visit.  
+When a user visits a website, read the currentTask key. If it's defined, send a request to the backend with the website they are visiting as well as their task.  
+Use the response from the backend to either do nothing (permit website) or block it by replacing the HTML to remind them of their task.
 
 
 ## 🚀 How to Use
