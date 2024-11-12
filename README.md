@@ -19,7 +19,7 @@ Uses the LLama3 7B parameter model
 Llama.cpp Python bindings for both finetuning the initial Llama3 model using a custom made finetuning dataaset, as well as for running the model on every browser request  
 Chrome sync storage API for task storage
 
-🏗️ **Implementation**  
+**Implementation**  
   
 Finetune the initial LLama3 7B parameter model using the custom finetuning dataset, and apply the output LORA to the baseline model.  
 Expose an API with CORS support to allow requests to come in from the web extension.  
