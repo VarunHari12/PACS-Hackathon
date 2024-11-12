@@ -1,5 +1,6 @@
 # 📦 Boxly Documentation
 
+
 ## 🏫 Overview 
 
 Boxly is a productivity and organization web extension that allows users to track their tasks and stay focused using active blocking. With its wide array of features, users can organize and document tasks in a calendar or bulletin board format. With Boxly, we hope to have a measurable impact on productivity and foster a new working routine for our users.
@@ -15,6 +16,7 @@ Boxly is a productivity and organization web extension that allows users to trac
 **Other**
 
 **Implementation**
+
 
 ## 🚀 How to Use
 
@@ -44,6 +46,7 @@ Boxly is a productivity and organization web extension that allows users to trac
 
 7. **Access Boxly’s Home Page**
    - Click on your extensions list and select **Boxly** to open its homepage.
+
   
 ## 🔑 Key Features
 
@@ -60,6 +63,7 @@ Boxly is a productivity and organization web extension that allows users to trac
 **Blocking and Breaks**
    - When you start a task, an AI blocking algorithm will decide which searches and webpages are related to your assignment and block them accordingly
    - If you select "take breaks", Boxly will automatically give you forced breaks that block anything from being done on your browser
+
 
 ## 🗻Challenges
 
