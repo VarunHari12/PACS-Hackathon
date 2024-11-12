@@ -6,6 +6,16 @@ Boxly is a productivity and organization web extension that allows users to trac
 
 ## 💻 Technical stack
 
+**Languages used** 
+   - Python: backend
+   - Javascript: frontend
+   - HTML: frontend
+   - CSS: frontend
+
+**Other**
+
+**Implementation**
+
 ## 🚀 How to Use
 
 > **Note:** Boxly isn’t yet available on the Chrome Extension Store, but you can still add it to your browser with these simple steps:
