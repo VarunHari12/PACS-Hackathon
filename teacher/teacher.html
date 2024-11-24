@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal.active {
+            display: flex;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <nav class="bg-blue-600 text-white p-4">
+        <div class="container mx-auto">
+            <h1 class="text-2xl font-bold">Teacher Dashboard</h1>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-4">
+        <section class="mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Classes</h2>
+                <button onclick="showModal('createClassModal')" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Create Class
+                </button>
+            </div>
+            <div id="classesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Classes will be populated here -->
+            </div>
+        </section>
+
+        <!-- Assignments Section -->
+        <section>
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center space-x-4">
+                    <h2 class="text-xl font-bold">Recent Assignments</h2>
+                    <select id="assignmentClassFilter" 
+                            onchange="fetchAssignmentsForClass(this.value)"
+                            class="border rounded px-2 py-1 focus:outline-none focus:border-blue-500">
+                        <option value="">Select Class</option>
+                    </select>
+                </div>
+                <button onclick="showModal('createAssignmentModal')" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                    Create Assignment
+                </button>
+            </div>
+            <div id="assignmentsList" class="space-y-4">
+                <!-- Assignments will be populated here -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Create Class Modal -->
+    <div id="createClassModal" class="modal items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Create New Class</h3>
+            <form id="createClassForm" onsubmit="createClass(event)">
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="className">Class Name</label>
+                    <input type="text" id="className" required
+                           class="w-full p-2 border rounded focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="hideModal('createClassModal')"
+                            class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        Create
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Assignment Modal -->
+    <div id="createAssignmentModal" class="modal items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Create New Assignment</h3>
+            <form id="createAssignmentForm" onsubmit="createAssignment(event)">
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="assignmentClass">Class</label>
+                    <select id="assignmentClass" required
+                            class="w-full p-2 border rounded focus:outline-none focus:border-blue-500">
+                        <!-- Classes will be populated here -->
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="assignmentTitle">Title</label>
+                    <input type="text" id="assignmentTitle" required
+                           class="w-full p-2 border rounded focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="assignmentDueDate">Due Date</label>
+                    <input type="datetime-local" id="assignmentDueDate" required
+                           class="w-full p-2 border rounded focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="assignmentInfo">Assignment Information</label>
+                    <textarea id="assignmentInfo" required rows="3"
+                            class="w-full p-2 border rounded focus:outline-none focus:border-blue-500"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="timeToComplete">Time to Complete (minutes)</label>
+                    <input type="number" id="timeToComplete" required min="1"
+                           class="w-full p-2 border rounded focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="hideModal('createAssignmentModal')"
+                            class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                        Create
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Utility functions
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function showError(message) {
+            alert(message);
+        }
+
+        const BASE_URL = 'http://127.0.0.1:8082'
+
+        async function fetchClasses() {
+            try {
+                const response = await fetch(`${BASE_URL}/list_classes`);
+                const data = await response.json();
+                if (data.success) {
+                    renderClasses(data.classes);
+                    updateClassSelect(data.classes);
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Failed to fetch classes');
+            }
+        }
+
+        async function createClass(event) {
+            event.preventDefault();
+            const className = document.getElementById('className').value;
+
+            try {
+                const response = await fetch(`${BASE_URL}/create_class`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ class_name: className })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    hideModal('createClassModal');
+                    document.getElementById('createClassForm').reset();
+                    fetchClasses();
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Failed to create class');
+            }
+        }
+
+        async function createAssignment(event) {
+            event.preventDefault();
+            const formData = {
+                class_name: document.getElementById('assignmentClass').value,
+                title: document.getElementById('assignmentTitle').value,
+                due_date: document.getElementById('assignmentDueDate').value,
+                assignment_info: document.getElementById('assignmentInfo').value,
+                time_to_complete: parseInt(document.getElementById('timeToComplete').value)
+            };
+
+            try {
+                const response = await fetch(`${BASE_URL}/push_assignment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    hideModal('createAssignmentModal');
+                    document.getElementById('createAssignmentForm').reset();
+                    fetchAssignments();
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Failed to create assignment');
+            }
+        }
+
+        async function fetchClassStudents(className) {
+            try {
+                const response = await fetch(`${BASE_URL}/class_students/${encodeURIComponent(className)}`);
+                const data = await response.json();
+                if (data.success) {
+                    return data.students;
+                } else {
+                    showError(data.error);
+                    return [];
+                }
+            } catch (error) {
+                showError('Failed to fetch class students');
+                return [];
+            }
+        }
+
+        function renderClasses(classes) {
+            const classesContainer = document.getElementById('classesList');
+            classesContainer.innerHTML = classes.map(cls => `
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="font-bold text-lg mb-2">${cls.name}</h3>
+                    <p class="text-gray-600">${cls.student_count} students</p>
+                    <button onclick="viewClassDetails('${cls.name}')"
+                            class="mt-2 text-blue-500 hover:text-blue-600">
+                        View Details
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function updateClassSelect(classes) {
+            // Update assignment creation select
+            const createSelect = document.getElementById('assignmentClass');
+            createSelect.innerHTML = classes.map(cls => `
+                <option value="${cls.name}">${cls.name}</option>
+            `).join('');
+            
+            // Update assignment filter select
+            const filterSelect = document.getElementById('assignmentClassFilter');
+            filterSelect.innerHTML = `
+                <option value="">All Classes</option>
+                ${classes.map(cls => `
+                    <option value="${cls.name}">${cls.name}</option>
+                `).join('')}
+            `;
+        }
+
+        async function viewClassDetails(className) {
+            const students = await fetchClassStudents(className);
+            alert(`Students in ${className}:\n${students.join('\n')}`);
+        }
+
+        async function fetchAssignmentsForClass(className) {
+            if (!className) return;
+            
+            try {
+                const response = await fetch(`${BASE_URL}/class_assignments/${encodeURIComponent(className)}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderAssignments(data.assignments);
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Failed to fetch assignments');
+            }
+        }
+
+        function renderAssignments(assignments) {
+            const assignmentsList = document.getElementById('assignmentsList');
+            
+            if (!assignments.length) {
+                assignmentsList.innerHTML = `
+                    <div class="bg-white p-4 rounded-lg shadow text-gray-600">
+                        No assignments found for this class.
+                    </div>
+                `;
+                return;
+            }
+
+            assignmentsList.innerHTML = assignments.map(assignment => `
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 class="font-bold text-lg">${assignment.title}</h3>
+                            <p class="text-gray-600">Assigned to: ${assignment.student_name}</p>
+                        </div>
+                        <span class="text-sm ${isOverdue(assignment.due_date) ? 'text-red-500' : 'text-green-500'}">
+                            Due: ${formatDate(assignment.due_date)}
+                        </span>
+                    </div>
+                    <p class="text-gray-700 mb-2">${assignment.assignment_info}</p>
+                    <div class="text-sm text-gray-600">
+                        Time to complete: ${assignment.time_to_complete} minutes
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function isOverdue(dateString) {
+            return new Date(dateString) < new Date();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchClasses();
+        });
+    </script>
+</body>
+</html>
