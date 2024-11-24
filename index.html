@@ -11,8 +11,141 @@
   <title>Boxly</title>
   <link rel="stylesheet" href="styles.css">
   <script src="scripts.js" defer></script>
+  <style>
+    .auth-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    
+    .auth-box {
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      width: 300px;
+    }
+    
+    .auth-box input {
+      width: 100%;
+      padding: 8px;
+      margin: 8px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    
+    .auth-box button {
+      width: 100%;
+      padding: 10px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    
+    .class-tag {
+      display: inline-block;
+      padding: 4px 8px;
+      background: #007bff;
+      color: white;
+      border-radius: 4px;
+      margin-right: 5px;
+      font-size: 12px;
+    }
+    
+    .assignment-class {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+    
+    .user-info {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    #classes-list {
+      position: fixed;
+      top: 60px;
+      right: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      max-width: 200px;
+    }
+    #logout-btn {
+      margin-left: 10px;
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #logout-btn:hover {
+      background-color: #c82333;
+    }
+
+    #completed-count {
+      margin-left: 10px;
+      background: #28a745;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.8em;
+    }
+
+    .completed-assignment {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  </style>
 </head>
 <body>
+  <div id="auth-container" class="auth-container">
+    <div class="auth-box">
+      <h2>Welcome to Boxly</h2>
+      <input type="text" id="student-name" placeholder="Enter your name">
+      <button id="signup-btn">Sign Up</button>
+    </div>
+  </div>
+  
+  <div id="join-class-container" class="auth-container" style="display: none;">
+    <div class="auth-box">
+      <h2>Join a Class</h2>
+      <div id="available-classes"></div>
+      <button id="finish-joining">Done</button>
+    </div>
+  </div>
+  
+  <div class="user-info">
+    <span id="user-name"></span>
+    <span id="completed-count"></span>
+    <button id="join-class-btn">Join Class</button>
+    <button id="logout-btn">Logout</button>
+    <button id="clear-completed">Clear Completed</button>
+  </div>
+  
+  <div id="classes-list">
+    <h3>Your Classes</h3>
+    <div id="enrolled-classes"></div>
+  </div>
+  
   <div id="tab-container">
     <button id="free-tab" class="tab active">Free</button>
     <button id="calendar-tab" class="tab">Calendar</button>

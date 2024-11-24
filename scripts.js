@@ -1,5 +1,237 @@
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Study Flow script loaded successfully!');
+    let assignmentUpdateInterval = null;
+    
+    let currentUser = localStorage.getItem('currentUser');
+    
+    function updateCompletedCounter() {
+        const completed = getCompletedAssignments();
+        const counter = document.getElementById('completed-count');
+        if (counter) {
+            counter.textContent = `Completed: ${completed.length}`;
+        }
+    }
+    
+    updateCompletedCounter();
+    
+    async function checkAuth() {
+        const authContainer = document.getElementById('auth-container');
+        const signupBtn = document.getElementById('signup-btn');
+        const studentNameInput = document.getElementById('student-name');
+        
+        // If user is already logged in
+        if (currentUser) {
+            authContainer.style.display = 'none';
+            document.getElementById('user-name').textContent = `Welcome, ${currentUser}!`;
+            startAssignmentUpdates();
+            loadClasses();
+            updateEnrolledClasses();
+            return;
+        }
+        
+        signupBtn.addEventListener('click', async () => {
+            const name = studentNameInput.value.trim();
+            if (!name) {
+                alert('Please enter your name');
+                return;
+            }
+            
+            const response = await fetch('http://127.0.0.1:8082/sign_up', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name: name })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                currentUser = name;
+                localStorage.setItem('currentUser', name); // Save to localStorage
+                document.getElementById('user-name').textContent = `Welcome, ${name}!`;
+                authContainer.style.display = 'none';
+                startAssignmentUpdates();
+                loadClasses();
+                showJoinClassPrompt();
+            } else {
+                alert(data.error);
+            }
+        });
+    }
+    
+    function logout() {
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('completedAssignments');
+        currentUser = null;
+        location.reload();
+    }
+    
+    
+    async function loadClasses() {
+        const response = await fetch('http://127.0.0.1:8082/list_classes');
+        const data = await response.json();
+        
+        const availableClasses = document.getElementById('available-classes');
+        availableClasses.innerHTML = '';
+        
+        data.classes.forEach(cls => {
+            const classDiv = document.createElement('div');
+            classDiv.className = 'class-option';
+            classDiv.innerHTML = `
+                <span>${cls.name}</span>
+                <button class="join-btn" data-class="${cls.name}">Join</button>
+            `;
+            availableClasses.appendChild(classDiv);
+        });
+        
+        // Add event listeners to join buttons
+        document.querySelectorAll('.join-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const className = btn.dataset.class;
+                await joinClass(className);
+                btn.disabled = true;
+                btn.textContent = 'Joined';
+            });
+        });
+    }
+    
+    async function joinClass(className) {
+        const response = await fetch('http://127.0.0.1:8082/join_class', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                student_name: currentUser,
+                class_name: className
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            updateEnrolledClasses();
+        } else {
+            alert(data.error);
+        }
+    }
+    
+    async function updateEnrolledClasses() {
+        const response = await fetch('http://127.0.0.1:8082/fetch_assignments', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                student_name: currentUser
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            const enrolledClassesDiv = document.getElementById('enrolled-classes');
+            enrolledClassesDiv.innerHTML = '';
+            
+            Object.keys(data.assignments).forEach(className => {
+                const classTag = document.createElement('div');
+                classTag.className = 'class-tag';
+                classTag.textContent = className;
+                enrolledClassesDiv.appendChild(classTag);
+            });
+        }
+    }
+    
+    function showJoinClassPrompt() {
+        const joinClassContainer = document.getElementById('join-class-container');
+        joinClassContainer.style.display = 'flex';
+        
+        document.getElementById('finish-joining').addEventListener('click', () => {
+            joinClassContainer.style.display = 'none';
+        });
+    }
+    
+    function startAssignmentUpdates() {
+        if (assignmentUpdateInterval) {
+            clearInterval(assignmentUpdateInterval);
+        }
+        
+        async function updateAssignments() {
+            const currentUser = localStorage.getItem('currentUser');
+            if (!currentUser) return;
+            
+            const response = await fetch('http://127.0.0.1:8082/fetch_assignments', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    student_name: currentUser
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                const completedAssignments = getCompletedAssignments();
+                
+                Object.entries(data.assignments).forEach(([className, assignments]) => {
+                    assignments.forEach(assignment => {
+                        const assignmentId = `${assignment.title.trim().toLowerCase()}-${new Date(assignment.due_date).getTime()}-${assignment.assignment_info.trim().toLowerCase()}`;
+                        
+                        if (completedAssignments.includes(assignmentId)) {
+                            return; // Skip if already completed
+                        }
+                        
+                        const existingBox = Array.from(document.querySelectorAll('.box')).find(box =>
+                            box.querySelector('#topic').textContent.trim().toLowerCase() === assignment.title.trim().toLowerCase() &&
+                            box.querySelector('#assignment').textContent.trim().toLowerCase() === assignment.assignment_info.trim().toLowerCase()
+                        );
+                        
+                        if (!existingBox) {
+                            createMovableBox({
+                                topic: assignment.title,
+                                assignment: assignment.assignment_info,
+                                time: assignment.time_to_complete,
+                                duedate: new Date(assignment.due_date).getTime(),
+                                color: getRandomColor(),
+                                status: 'paused'
+                            });
+                        }
+                    });
+                });
+            }
+        }
+        
+        updateAssignments();
+        assignmentUpdateInterval = setInterval(updateAssignments, 3000);
+    }
+    
+    
+    function getRandomColor() {
+        const colors = ['#add8e6', '#F8DE7E', '#F8C8DC', '#AFE1AF', '#E6E6FA'];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+    
+    function getCompletedAssignments() {
+        const completed = localStorage.getItem('completedAssignments');
+        return completed ? JSON.parse(completed) : [];
+    }
+    
+    function markAssignmentAsCompleted(assignmentData) {
+        const completed = getCompletedAssignments();
+        const assignmentId = `${assignmentData.title.trim().toLowerCase()}-${assignmentData.due_date}-${assignmentData.assignment_info.trim().toLowerCase()}`;
+        
+        if (!completed.includes(assignmentId)) {
+            completed.push(assignmentId);
+            localStorage.setItem('completedAssignments', JSON.stringify(completed));
+        }
+        updateCompletedCounter();
+    }
+    
+    function clearCompletedAssignments() {
+        localStorage.removeItem('completedAssignments');
+    }
+    
+    
+    document.getElementById("logout-btn").onclick = logout;
+    document.getElementById("clear-completed").onclick = clearCompletedAssignments;
     
     const freeTab = document.getElementById('free-tab');
     const calendarTab = document.getElementById('calendar-tab');
@@ -25,6 +257,11 @@ document.addEventListener('DOMContentLoaded', () => {
         removeColorOptions();
     });
     
+    document.getElementById('join-class-btn').addEventListener('click', () => {
+        showJoinClassPrompt();
+    });
+    checkAuth();
+    
     calendarTab.addEventListener('click', () => {
         calendarTab.classList.add('active');
         freeTab.classList.remove('active');
@@ -32,13 +269,13 @@ document.addEventListener('DOMContentLoaded', () => {
         freeView.classList.remove('active');
         removeColorOptions();
         calendar.updateSize();
-
+        
     });
-
+    
     chrome.storage.sync.get(['boxes', 'currentTask'], (data) => {
         if (data.boxes) {
             data.boxes.forEach(boxData => createMovableBox(boxData));
-
+            
             data.boxes.forEach(boxData => {
                 const box = document.querySelector(`.box[number="${boxData.number}"]`);
                 if (boxData.breakActive) {
@@ -53,13 +290,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-
+        
         if (data.currentTask && data.currentTask.status === 'active') {
             const currentTaskNumber = data.currentTask.number;
             const taskStartingTime = data.currentTask.taskStartingTime;
             
             const box = document.querySelector(`.box[number="${currentTaskNumber}"]`);
-
+            
             if (data.currentTask.breakActive) {
                 if (box) {
                     const remainingBreakTime = data.currentTask.breakEndTime - Date.now();
@@ -72,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-
+            
             document.querySelectorAll(".box").forEach(box => {
                 const boxNumber = box.getAttribute('number');
                 if (boxNumber === currentTaskNumber) {
@@ -82,8 +319,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
-
-
+    
+    
     const calendarEl = document.getElementById('calendar');
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
@@ -92,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
         handleWindowResize: true,
         //height: 'auto',
         //width: 'auto',
-
+        
         eventDrop: function(info) {
             handleEventUpdate(info.event);
         },
@@ -100,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
             handleEventUpdate(info.event);
         }
     });
-
+    
     function reloadCalendar() {
         calendar.getEvents().forEach(event => event.remove());
         chrome.storage.sync.get(['boxes'], (data) => {
@@ -126,10 +363,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
+    
     calendar.render();
-
-
+    
+    
     function handleEventUpdate(event) {
         const updatedEvent = {
             id: event.id,
@@ -139,7 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
             time: event.extendedProps.time,
             assignment: event.extendedProps.assignment,
         };
-    
+        
         chrome.storage.sync.get(['boxes'], (data) => {
             const updatedBoxes = data.boxes.map(box => {
                 if (box.number === event.extendedProps.number) {
@@ -150,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const duedateElement = boxElement.querySelector('#duedate');
                         const luxonDate = luxon.DateTime.fromMillis(box.duedate);
                         duedateElement.textContent = luxonDate.toRelative({ base: luxon.DateTime.now() });
-
+                        
                         if (luxonDate < luxon.DateTime.now()) {
                             duedateElement.classList.add('past-due');
                         } else {
@@ -160,13 +397,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return box;
             });
-
+            
             chrome.storage.sync.set({ boxes: updatedBoxes }, () => {
                 reloadCalendar();
             });
         });
     }
-
+    
     function showColorOptions() {
         const colors = ['#add8e6', '#F8DE7E', '#F8C8DC', '#AFE1AF', '#E6E6FA'];
         const addButton = document.getElementById('add');
@@ -197,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
-
+    
     function removeColorOptions() {
         const colorButtons = document.querySelectorAll('.color-option'); 
         colorButtons.forEach((colorButton) => {
@@ -207,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
-
+    
     function showCompletionPrompt(box) {
         const completionScreen = document.createElement('div');
         completionScreen.className = 'break-screen'; // Using the same class for dark background
@@ -220,7 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         document.body.appendChild(completionScreen);
-    
+        
         completionScreen.querySelector('#complete-task').onclick = () => {
             completionScreen.remove();
             finishTask(box);
@@ -232,41 +469,41 @@ document.addEventListener('DOMContentLoaded', () => {
             completionScreen.remove();
         };
     }
-
+    
     function startTimer(taskDuration, box) {
         let taskStartingTime;
-    
+        
         if (!box.timeElapsed || box.timeElapsed === 0) {
             taskStartingTime = Date.now();
         } else {
             taskStartingTime = Date.now() - box.timeElapsed;
         }
-    
+        
         let breakInProgress = false;
         if (box.breakActive) {
             breakInProgress = true;
         }
-    
+        
         const breakInterval = taskDuration <= 60 * 60 * 1000 ? taskDuration / 2 : 60 * 60 * 1000;
         const breakDuration = taskDuration <= 60 * 60 * 1000 ? 5 * 60 * 1000 : 10 * 60 * 1000;
         let nextBreakTime = breakInterval;
-    
+        
         if (breakInProgress && box.breakStartTime && box.breakEndTime) {
             // Calculate nextBreakTime
             nextBreakTime = box.timeElapsed - (box.breakStartTime - taskStartingTime) + breakInterval;
         }
-    
+        
         let countdownElement = box.querySelector('.break-countdown') || document.createElement('p');
         countdownElement.className = 'break-countdown';
         box.querySelector('.break-checkbox').parentNode.appendChild(countdownElement);
-    
+        
         if (box.timerInterval) {
             clearInterval(box.timerInterval);
         }
-    
+        
         box.timerInterval = setInterval(() => {
             box.timeElapsed = Date.now() - taskStartingTime;
-    
+            
             if (!breakInProgress) {
                 const timeUntilNextBreak = nextBreakTime - box.timeElapsed;
                 if (timeUntilNextBreak >= 0) {
@@ -274,7 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const seconds = Math.floor((timeUntilNextBreak / 1000) % 60);
                     countdownElement.textContent = `Time until next break: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
                 }
-    
+                
                 chrome.storage.sync.set({
                     currentTask: {
                         topic: box.querySelector("h2").textContent,
@@ -285,12 +522,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                 });
             }
-    
+            
             if (box.timeElapsed >= nextBreakTime && !breakInProgress && box.querySelector('.break-checkbox').checked) {
                 breakInProgress = true;
                 let breakStartTime = Date.now();
                 let breakEndTime = breakStartTime + breakDuration;
-    
+                
                 chrome.storage.sync.get(['boxes', 'currentTask'], (data) => {
                     const updatedBoxes = data.boxes.map(b => {
                         if (b.number === box.getAttribute('number')) {
@@ -310,10 +547,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     });
                 });
-    
+                
                 showBreakScreen(breakDuration / 1000, box);
             }
-    
+            
             if (breakInProgress && box.breakEndTime) {
                 // Check if break is over
                 if (Date.now() >= box.breakEndTime) {
@@ -327,7 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-    
+            
             if (box.timeElapsed >= taskDuration) {
                 clearInterval(box.timerInterval);
                 delete box.timerInterval;
@@ -336,22 +573,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, 1000);
     }
-
+    
     function showBreakScreen(breakDurationInSeconds, box) {
         let breakStartTime = box.breakStartTime || Date.now();
         let breakEndTime = breakStartTime + breakDurationInSeconds * 1000;
         let remainingBreakTime = breakEndTime - Date.now();
-    
+        
         if (remainingBreakTime <= 0) {
             // Break is over
             endBreak(box);
             return;
         }
-    
+        
         // Store breakStartTime and breakEndTime in box
         box.breakStartTime = breakStartTime;
         box.breakEndTime = breakEndTime;
-    
+        
         const breakScreen = document.createElement('div');
         breakScreen.className = 'break-screen';
         breakScreen.innerHTML = `
@@ -362,20 +599,20 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         document.body.appendChild(breakScreen);
-    
+        
         const breakTimerElement = breakScreen.querySelector('#break-timer');
-    
+        
         const continueButton = breakScreen.querySelector('#continue-working');
-    
+        
         continueButton.addEventListener('click', () => {
             clearInterval(timerInterval);
             breakScreen.remove();
             endBreak(box); // Ensure break is properly ended
         });
-    
+        
         const timerInterval = setInterval(() => {
             remainingBreakTime = breakEndTime - Date.now();
-    
+            
             if (remainingBreakTime <= 0) {
                 clearInterval(timerInterval);
                 breakScreen.remove();
@@ -387,21 +624,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, 1000);
     }
-        
+    
     function endBreak(box) {
         clearInterval(box.breakTimerInterval); // Clear any existing intervals
         delete box.breakTimerInterval; // Clean up
-    
+        
         box.breakActive = false;
         delete box.breakStartTime;
         delete box.breakEndTime;
-    
+        
         // Update the display to reflect that the break has ended
         if (box.breakScreenElement) {
             box.breakScreenElement.remove();
             delete box.breakScreenElement;
         }
-    
+        
         // Update storage
         chrome.storage.sync.get(['boxes', 'currentTask'], (data) => {
             const updatedBoxes = data.boxes.map(b => {
@@ -425,7 +662,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-
+    
     function startTask(box, save = true, initialTimeElapsed = 0) {
         document.querySelectorAll('.box').forEach(b => {
             if (b !== box) {
@@ -440,18 +677,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
-
+        
         const controls = box.nextElementSibling;
         controls.querySelector('.start-btn').style.display = 'none';
         controls.querySelector('.pause-btn').style.display = 'block';
-
+        
         const taskDuration = parseInt(box.querySelector('#time').textContent) * 60 * 1000;
-
+        
         // Set timeElapsed appropriately before starting timer
         box.timeElapsed = initialTimeElapsed || box.timeElapsed || 0;
-
+        
         startTimer(taskDuration, box);
-
+        
         if (save) {
             // Save the current task
             const data = {
@@ -466,7 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
             chrome.storage.sync.set({ currentTask: data });
         }
     }
-
+    
     function finishTask(box) {
         const controls = box.nextElementSibling;
         
@@ -486,12 +723,31 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.error('Confetti function is not defined:', e);
         }
-    
+        
+        const assignmentId = `${box.querySelector('#topic').textContent}-${box.getAttribute('date')}-${box.querySelector('#assignment').textContent}`;
+        
+        // Get current completed assignments
+        const completed = getCompletedAssignments();
+        if (!completed.includes(assignmentId)) {
+            completed.push(assignmentId);
+            localStorage.setItem('completedAssignments', JSON.stringify(completed));
+        }
+        
+        // Create assignment data object
+        const assignmentData = {
+            title: box.querySelector('#topic').textContent,
+            due_date: box.getAttribute('date'),
+            assignment_info: box.querySelector('#assignment').textContent
+        };
+        
+        // Mark as completed in localStorage
+        markAssignmentAsCompleted(assignmentData);
+        
         clearInterval(box.timerInterval);
         delete box.timerInterval;
         box.classList.add('fade-out');
         controls.classList.add('fade-out');
-    
+        
         // Remove the box data from storage
         chrome.storage.sync.get(['boxes', 'currentTask'], (data) => {
             const updatedBoxes = data.boxes.filter(b => b.number !== box.getAttribute('number'));
@@ -500,7 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentTask: null
             });
         });
-    
+        
         // Remove the box and controls from the DOM
         setTimeout(() => {
             box.remove();
@@ -512,17 +768,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function removeEventFromCalendar(boxNumber) {
         const calendarEvents = calendar.getEvents();
-    
+        
         calendarEvents.forEach(event => {
             if (event.extendedProps.number === boxNumber) {
                 event.remove();
             }
         });
     }
-
+    
     function createMovableBox(savedData = null, selectedColor = '#add8e6') {
         var box_amounts = savedData?.number || document.querySelectorAll(".box").length;
-
+        
         const free = document.getElementById("free-view");
         
         const box = document.createElement('div');
@@ -598,7 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 controls.querySelector('.pause-btn').style.display = 'none';
                 controls.querySelector('.finish-btn').style.display = 'block';
             }
-
+            
             if (savedData.takeBreaks) {
                 box.querySelector('.break-checkbox').checked = savedData.takeBreaks;
                 box.querySelector('.break-checkbox').disabled = true;
@@ -606,9 +862,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             box.timeElapsed = 0;
         }
-
         
-
+        
+        
         function saveBoxes() {
             const boxes = Array.from(document.querySelectorAll('.box')).map(box => {
                 const number = box.getAttribute("number");
@@ -676,11 +932,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const text = duedate.textContent;
             const currentDate = parseInt(box.getAttribute("date"));
             console.log(text, currentDate);
-
+            
             if (text !== 'Due Date') {
                 const luxonDate = luxon.DateTime.fromMillis(currentDate);
                 duedate.innerHTML = `<input type="date" value="${luxonDate.toFormat('yyyy-MM-dd')}">`;
-            
+                
                 if (luxonDate < luxon.DateTime.now()) {
                     duedate.classList.add('past-due');
                 } else {
@@ -706,7 +962,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     enterEditMode();
                     return;
                 }
-
+                
                 edit_mode = false;
                 topic.contentEditable = false;
                 notes.contentEditable = false;
@@ -717,7 +973,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const selectedDate = luxon.DateTime.fromISO(dateInput.value);
                     box.setAttribute("date", selectedDate.ts);
                     duedate.textContent = selectedDate.toRelative({ base: luxon.DateTime.now() });
-
+                    
                     if (selectedDate < luxon.DateTime.now()) {
                         duedate.classList.add('past-due');
                     } else {
@@ -771,6 +1027,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         controls.querySelector('.trash-btn').onclick = function() {
             if (confirm('Are you sure you want to delete this task?')) {
+                // Create a unique identifier for the assignment
+                const assignmentId = `${box.querySelector('#topic').textContent}-${box.getAttribute('date')}-${box.querySelector('#assignment').textContent}`;
+                
+                // Add to completed assignments
+                const completed = getCompletedAssignments();
+                if (!completed.includes(assignmentId)) {
+                    completed.push(assignmentId);
+                    localStorage.setItem('completedAssignments', JSON.stringify(completed));
+                }
+                
                 // Stop any timerInterval
                 if (box.timerInterval) {
                     clearInterval(box.timerInterval);
@@ -834,8 +1100,8 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBoxes();
         reloadCalendar();
     }
-
     
-
-
+    
+    
+    
 });
