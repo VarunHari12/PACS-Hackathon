@@ -3,15 +3,13 @@
 
 ## 🏫 Overview 
 
-Boxly is a productivity and organization web extension that allows users to track their tasks and stay focused using active blocking. With its wide array of features, users can organize and document tasks in a calendar or bulletin board format. With Boxly, we hope to have a measurable impact on productivity and foster a new working routine for our users.
+Boxly is a productivity and organization web extension that allows users to track their tasks and stay focused using active AI blocking. With its wide array of features, users can organize and document tasks in a calendar or bulletin board format. With Boxly, we hope to utilize AI to have a measurable impact on productivity and foster a new working routine for our users.
 
 ## 💻 Technical stack
 
 **Languages used** 
    - Python: backend
-   - Javascript: frontend
-   - HTML: frontend
-   - CSS: frontend
+   - HTML/JS/CSS: Frontend
 
 **Other**  
   
@@ -19,7 +17,44 @@ Uses the LLama3 7B parameter model
 Llama.cpp Python bindings for both finetuning the initial Llama3 model using a custom made finetuning dataaset, as well as for running the model on every browser request  
 Chrome sync storage API for task storage
 
-**Implementation**  
+## 🤖 AI Capabilities
+
+**AI-Powered Blocking System**
+- Boxly leverages the Llama3 7B parameter model to provide intelligent website blocking
+- The AI analyzes the current task and determines which websites are potentially distracting or unrelated
+- Utilizes a custom-trained machine learning model to enhance accuracy of website blocking
+
+**Model Training**
+- Base Model: Llama3 7B parameter model
+- Training Approach: 
+  * Custom-created fine-tuning dataset
+  * Applied LORA (Low-Rank Adaptation) technique to baseline model
+  * Improves model's understanding of task-related context
+
+**Technical Implementation**
+- Uses Llama.cpp Python bindings for:
+  * Fine-tuning the initial Llama3 model
+  * Running the model on each browser request
+- Processes requests by:
+    1. Reading the current task
+    2. Analyzing the visited website
+    3. Deciding whether to permit or block access
+
+**Blocking Mechanism**
+- When a task is started, the AI evaluates:
+  * The specific task details such as YouTube video name or Wikipedia article name
+  * Websites being visited
+  * Potential relevance to the current work
+- Provides intelligent blocking to minimize distractions
+- Offers contextual reminders to keep users focused on their primary task
+
+**Continuous Improvement**
+- The blocking algorithm has been refined through extensive testing
+- Aims to provide increasingly accurate task-related website filtering
+- Future versions will continue to enhance AI precision and usefulness
+
+
+## 🏗️ Implementation
   
 Finetune the initial LLama3 7B parameter model using the custom finetuning dataset, and apply the output LORA to the baseline model.  
 Expose an API with CORS support to allow requests to come in from the web extension.  
